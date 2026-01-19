@@ -90,7 +90,7 @@ function Signup() {
         // await updateProfile(data.user.id, { full_name: name });
         const accessToken = encodeURIComponent(data.session.access_token);
         // FORCE REDIRECT - NO ALERT
-        window.location.href = `https://positive-sheet-237822.framer.app/?token=${accessToken}`;
+        window.location.href = `${import.meta.env.VITE_REDIRECT_URL}?token=${accessToken}`;
       }
     }
   };

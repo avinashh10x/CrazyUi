@@ -85,7 +85,7 @@ function Signin() {
         setError(error.message);
       } else if (data.session) {
         const accessToken = encodeURIComponent(data.session.access_token);
-        window.location.href = `https://positive-sheet-237822.framer.app/?token=${accessToken}`;
+        window.location.href = `${import.meta.env.VITE_REDIRECT_URL}?token=${accessToken}`;
       }
     }
   };
