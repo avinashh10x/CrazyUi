@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import { signInWithEmail, verifyOtpCode } from "../lib/supabase";
 
 function Signin() {
@@ -92,75 +93,79 @@ function Signin() {
 
   return (
     <div className="w-full">
-      {/* Content Transition */}
-      <div className="relative">
-        {error && (
-          <div className="mb-4 text-red-400 text-xs bg-red-900/20 p-2 rounded-lg text-center border border-red-900/50">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="mb-4 text-red-600 text-xs bg-red-50 p-3 rounded-lg text-center border border-red-200">
+          {error}
+        </div>
+      )}
 
-        {step === "email" ? (
-          <form
-            onSubmit={handleEmailSubmit}
-            className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+      {step === "email" ? (
+        <motion.form
+          onSubmit={handleEmailSubmit}
+          className="space-y-6"
+          layout
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
+          <motion.div
+            className="space-y-2"
+            layout
+            transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">
-                Email Address
-              </label>
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all"
+              required
+            />
+          </motion.div>
+
+          <motion.button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            layout
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            {loading ? "Sending OTP..." : "Continue"}
+          </motion.button>
+        </motion.form>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex justify-between gap-2" onPaste={handlePaste}>
+            {otp.map((digit, index) => (
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-white"
-                required
+                key={index}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
+                type="text"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                className="w-12 h-14 bg-white border-2 border-gray-300 rounded-lg text-center text-xl font-bold text-gray-900 focus:outline-none focus:border-black transition-all"
               />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3.5 rounded-xl shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Sending OTP..." : "Continue"}
-            </button>
-          </form>
-        ) : (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
-            <div className="flex justify-between gap-2" onPaste={handlePaste}>
-              {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => {
-                    inputRefs.current[index] = el;
-                  }}
-                  type="text"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleOtpChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-14 bg-black/20 border border-white/10 rounded-lg text-center text-xl font-bold text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all caret-blue-500"
-                />
-              ))}
-            </div>
-            <button
-              onClick={handleVerify}
-              disabled={loading}
-              className="w-full bg-white text-black font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Verifying..." : "Verify Code"}
-            </button>
-            <button
-              onClick={() => setStep("email")}
-              className="w-full text-xs text-gray-500 hover:text-white transition-colors"
-              disabled={loading}
-            >
-              Wrong email? Go back
-            </button>
+            ))}
           </div>
-        )}
-      </div>
+          <button
+            onClick={handleVerify}
+            disabled={loading}
+            className="w-full bg-black text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Verifying..." : "Verify Code"}
+          </button>
+          <button
+            onClick={() => setStep("email")}
+            className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            disabled={loading}
+          >
+            Wrong email? Go back
+          </button>
+        </div>
+      )}
     </div>
   );
 }
