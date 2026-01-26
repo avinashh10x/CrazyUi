@@ -29,9 +29,9 @@ function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <span className="text-xl font-bold text-black w-24">
+            <a href="/" className="text-xl font-bold text-black w-24">
                 <img src="/logo.png" alt="crazyui_logo" className="w-24" />
-            </span>
+            </a>
           </div>
 
           {/* Desktop Navigation */}
@@ -103,7 +103,7 @@ function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, delay: 0.05 }}
-                href="#"
+                href="/"
                 className="block px-3 py-2 text-sm text-gray-700 hover:text-black hover:bg-gray-50 rounded-md transition-colors"
               >
                 Home
@@ -113,7 +113,7 @@ function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
-                href="#"
+                href="/components"
                 className="block px-3 py-2 text-sm text-gray-700 hover:text-black hover:bg-gray-50 rounded-md transition-colors"
               >
                 Components
@@ -123,7 +123,7 @@ function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, delay: 0.15 }}
-                href="#"
+                href="/templates"
                 className="block px-3 py-2 text-sm text-gray-700 hover:text-black hover:bg-gray-50 rounded-md transition-colors"
               >
                 Templates
@@ -133,7 +133,7 @@ function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                href="#"
+                href="/pricing"
                 className="block px-3 py-2 text-sm text-gray-700 hover:text-black hover:bg-gray-50 rounded-md transition-colors"
               >
                 Pricing
@@ -143,7 +143,7 @@ function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3, delay: 0.25 }}
-                href="#"
+                href="/collection"
                 className="block px-3 py-2 text-sm w-full bg-black text-white rounded-lg"
               >
                 Explore Collection

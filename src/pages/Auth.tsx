@@ -245,7 +245,7 @@ function Auth() {
               )}
 
               {/* Toggle Link */}
-              {step === "details" && (
+              {/* {step === "details" && (
                 <motion.div
                   className="mt-6 text-center text-sm text-gray-600 "
                   layout
@@ -273,7 +273,7 @@ function Auth() {
                     </>
                   )}
                 </motion.div>
-              )}
+              )} */}
             </motion.div>
           </motion.div>
         </div>
