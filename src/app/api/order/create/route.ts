@@ -1,79 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createCashfreeOrder } from '@/lib/cashfree';
-import { emailExists } from '@/lib/supabase-admin';
-import type { CreateOrderRequest, CreateOrderResponse } from '@/types/membership';
+import { NextResponse } from "next/server";
+import { Cashfree } from "cashfree-pg";
 
-/**
- * POST /api/order/create
- * Creates a payment order with Cashfree
- */
-export async function POST(req: NextRequest) {
-    try {
-        const body: CreateOrderRequest = await req.json();
-        const { name, email, phone } = body;
+Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
+Cashfree.XEnvironment = Cashfree.Environment.SANDBOX;
 
-        // Validate input
-        if (!name || !email || !phone) {
-            return NextResponse.json(
-                { success: false, error: 'Name, email, and phone are required' },
-                { status: 400 }
-            );
-        }
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { name, email, phone } = body;
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return NextResponse.json(
-                { success: false, error: 'Invalid email format' },
-                { status: 400 }
-            );
-        }
-
-        // Validate phone format (basic check for digits)
-        const phoneRegex = /^\d{10}$/;
-        if (!phoneRegex.test(phone)) {
-            return NextResponse.json(
-                { success: false, error: 'Phone number must be 10 digits' },
-                { status: 400 }
-            );
-        }
-
-        // Check if email already exists
-        const exists = await emailExists(email);
-        if (exists) {
-            return NextResponse.json(
-                { success: false, error: 'Email already registered' },
-                { status: 400 }
-            );
-        }
-
-        // Generate unique order ID
-        const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-        // Get membership amount from environment
-        const amount = parseFloat(process.env.NEXT_PUBLIC_MEMBERSHIP_AMOUNT || '999');
-
-        // Create Cashfree order
-        const orderResponse = await createCashfreeOrder({
-            orderId,
-            amount,
-            customerName: name,
-            customerEmail: email,
-            customerPhone: phone,
-        });
-
-        const response: CreateOrderResponse = {
-            success: true,
-            paymentSessionId: orderResponse.payment_session_id,
-            orderId: orderResponse.order_id,
-        };
-
-        return NextResponse.json(response, { status: 200 });
-    } catch (error: any) {
-        console.error('Order creation error:', error);
-        return NextResponse.json(
-            { success: false, error: error.message || 'Failed to create order' },
-            { status: 500 }
-        );
+    if (!name || !email || !phone) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
+
+    const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const customerId = email.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 40); // Sanitize email for customer_id
+
+    const requestData = {
+      order_amount: 100.0, // Fixed membership fee
+      order_currency: "INR",
+      order_id: orderId,
+      customer_details: {
+        customer_id: customerId,
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone,
+      },
+      order_meta: {
+        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account?order_id={order_id}`,
+      },
+    };
+
+    const response = await Cashfree.PGCreateOrder("2023-08-01", requestData); // Check API version compatibility
+    const data = response.data;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("Error creating order:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to create order" },
+      { status: 500 },
+    );
+  }
 }

@@ -1,84 +1,108 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyWebhookSignature } from '@/lib/cashfree';
-import { createUser, createPayment, orderExists } from '@/lib/supabase-admin';
-import type { CashfreeWebhookPayload } from '@/types/membership';
+import { NextResponse } from "next/server";
+import { Cashfree } from "cashfree-pg";
+import { supabase } from "@/lib/supabase";
 
-/**
- * POST /api/membership/webhook
- * Handles Cashfree payment webhook
- */
-export async function POST(req: NextRequest) {
-    try {
-        // Get webhook headers
-        const signature = req.headers.get('x-webhook-signature');
-        const timestamp = req.headers.get('x-webhook-timestamp');
+Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
+Cashfree.XEnvironment =
+  process.env.CASHFREE_ENV === "PROD"
+    ? Cashfree.Environment.PRODUCTION
+    : Cashfree.Environment.SANDBOX;
 
-        if (!signature || !timestamp) {
-            console.error('Missing webhook signature or timestamp');
-            return NextResponse.json(
-                { error: 'Missing signature or timestamp' },
-                { status: 401 }
-            );
-        }
+export async function POST(request: Request) {
+  try {
+    const signature = request.headers.get("x-webhook-signature");
+    const timestamp = request.headers.get("x-webhook-timestamp");
+    const body = await request.text(); // Raw body for verification
 
-        // Get raw body for signature verification
-        const rawBody = await req.text();
-
-        // Verify webhook signature
-        const isValid = verifyWebhookSignature(rawBody, signature, timestamp);
-        if (!isValid) {
-            console.error('Invalid webhook signature');
-            return NextResponse.json(
-                { error: 'Invalid signature' },
-                { status: 401 }
-            );
-        }
-
-        // Parse webhook payload
-        const payload: CashfreeWebhookPayload = JSON.parse(rawBody);
-
-        // Only process successful payments
-        if (payload.data.payment.payment_status !== 'SUCCESS') {
-            console.log('Payment not successful, ignoring webhook');
-            return NextResponse.json({ received: true }, { status: 200 });
-        }
-
-        const { order, payment, customer_details } = payload.data;
-
-        // Check idempotency - if order already processed, return success
-        const alreadyProcessed = await orderExists(order.order_id);
-        if (alreadyProcessed) {
-            console.log('Order already processed, returning success');
-            return NextResponse.json({ received: true }, { status: 200 });
-        }
-
-        // Create payment record first
-        await createPayment({
-            order_id: order.order_id,
-            cf_payment_id: payment.cf_payment_id,
-            email: customer_details.customer_email,
-            amount: payment.payment_amount,
-            status: 'SUCCESS',
-        });
-
-        // Create user account
-        await createUser({
-            name: customer_details.customer_name,
-            email: customer_details.customer_email,
-            phone: customer_details.customer_phone,
-        });
-
-        console.log('User account created successfully for:', customer_details.customer_email);
-
-        return NextResponse.json({ received: true }, { status: 200 });
-    } catch (error: any) {
-        console.error('Webhook processing error:', error);
-
-        // Return 200 to prevent Cashfree from retrying
-        // Log error for manual review
-        return NextResponse.json(
-            { error: 'Internal error', message: error.message },
-            { status: 500 }
-        );
+    if (!signature || !timestamp) {
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
+
+    // Verify Signature
+    try {
+      Cashfree.PGVerifyWebhookSignature(signature, body, timestamp);
+    } catch (err) {
+      console.error("Webhook signature verification failed", err);
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
+
+    const event = JSON.parse(body);
+
+    if (event.type === "PAYMENT_SUCCESS_WEBHOOK") {
+      const paymentData = event.data.payment;
+      const orderData = event.data.order;
+
+      const email = event.data.customer_details.customer_email;
+      const phone = event.data.customer_details.customer_phone;
+      const name = event.data.customer_details.customer_name;
+
+      const orderId = orderData.order_id;
+      const cfPaymentId = paymentData.cf_payment_id;
+      const paymentAmount = paymentData.payment_amount;
+
+      // 1. Check if user exists, create if not
+      const { data: existingUser, error: userFetchError } = await supabase
+        .from("users")
+        .select("email")
+        .eq("email", email)
+        .single();
+
+      if (!existingUser) {
+        const { error: createUserError } = await supabase.from("users").insert({
+          name,
+          email,
+          phone,
+          membership_status: "active",
+        });
+
+        if (createUserError) {
+          console.error("Error creating user:", createUserError);
+          return NextResponse.json(
+            { error: "Failed to create user" },
+            { status: 500 },
+          );
+        }
+      } else {
+        // Update existing user status if needed
+        await supabase
+          .from("users")
+          .update({ membership_status: "active" })
+          .eq("email", email);
+      }
+
+      // 2. Record Payment
+      const { error: paymentError } = await supabase.from("payments").insert({
+        order_id: orderId,
+        cf_payment_id: cfPaymentId,
+        email,
+        amount: paymentAmount,
+        status: "SUCCESS",
+      });
+
+      if (paymentError) {
+        // If duplicate payment ID, likely idempotent retry. Log and ignore.
+        if (paymentError.code === "23505") {
+          // Unique violation
+          console.log("Payment already recorded:", cfPaymentId);
+          return NextResponse.json({ status: "ignored" });
+        }
+        console.error("Error recording payment:", paymentError);
+        return NextResponse.json(
+          { error: "Failed to record payment" },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({ status: "processed" });
+    }
+
+    return NextResponse.json({ status: "ignored" });
+  } catch (error: any) {
+    console.error("Webhook Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Webhook failed" },
+      { status: 500 },
+    );
+  }
 }
