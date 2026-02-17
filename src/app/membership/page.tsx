@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type PlanType = "premium" | "premium-plus";
@@ -39,7 +39,7 @@ const PLANS: Record<PlanType, PlanConfig> = {
   },
 };
 
-export default function MembershipPage() {
+function MembershipContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
@@ -233,6 +233,20 @@ export default function MembershipPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MembershipPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <MembershipContent />
+    </Suspense>
   );
 }
 
