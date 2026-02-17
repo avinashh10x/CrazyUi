@@ -55,9 +55,13 @@ export default function HomePage() {
           setUserData(data.user);
           setPayments(data.payments);
         }
+      } else {
+        // Redirect to signin if not authenticated
+        router.push("/signin");
       }
     } catch (err) {
       console.error("Auth check failed:", err);
+      router.push("/signin");
     } finally {
       setLoading(false);
     }
@@ -84,7 +88,7 @@ export default function HomePage() {
 
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
+        Header
         <header className="bg-white border-b border-gray-200">
           <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
             <img src="/logo.png" alt="CrazyUI" className="w-24" />
@@ -118,16 +122,18 @@ export default function HomePage() {
             className="mt-8"
           >
             <div
-              className={`rounded-2xl p-6 border ${isPremium
+              className={`rounded-2xl p-6 border ${
+                isPremium
                   ? "bg-gradient-to-r from-black to-gray-800 text-white border-transparent"
                   : "bg-white border-gray-200"
-                }`}
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p
-                    className={`text-xs font-medium uppercase tracking-wider ${isPremium ? "text-gray-400" : "text-gray-500"
-                      }`}
+                    className={`text-xs font-medium uppercase tracking-wider ${
+                      isPremium ? "text-gray-400" : "text-gray-500"
+                    }`}
                   >
                     Membership
                   </p>
@@ -188,8 +194,9 @@ export default function HomePage() {
               <div className="flex justify-between items-center px-6 py-4">
                 <span className="text-sm text-gray-500">Status</span>
                 <span
-                  className={`text-sm font-semibold ${isPremium ? "text-green-600" : "text-gray-400"
-                    }`}
+                  className={`text-sm font-semibold ${
+                    isPremium ? "text-green-600" : "text-gray-400"
+                  }`}
                 >
                   {isPremium ? "Premium Member" : "Free"}
                 </span>
@@ -224,10 +231,11 @@ export default function HomePage() {
                     </div>
                     <div className="text-right">
                       <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full ${payment.status === "SUCCESS"
+                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          payment.status === "SUCCESS"
                             ? "bg-green-50 text-green-600"
                             : "bg-red-50 text-red-600"
-                          }`}
+                        }`}
                       >
                         {payment.status}
                       </span>
@@ -239,7 +247,7 @@ export default function HomePage() {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
-                            }
+                            },
                           )}
                         </p>
                       )}
@@ -254,152 +262,6 @@ export default function HomePage() {
     );
   }
 
-  // ─── NOT LOGGED IN: Premium Plan CTA ───
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logo.png" alt="CrazyUI" className="w-24" />
-          <Link
-            href="/signin"
-            className="text-sm font-medium text-gray-700 hover:text-black transition-colors"
-          >
-            Sign In
-          </Link>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <div className="max-w-3xl mx-auto px-4 pt-20 pb-16 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="inline-block bg-black text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-6">
-            LIFETIME ACCESS
-          </div>
-          <h1 className="text-5xl font-bold text-gray-900 leading-tight mb-4">
-            Premium UI Components
-            <br />
-            <span className="text-gray-400">for Modern Developers</span>
-          </h1>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto mb-10">
-            Get access to beautifully crafted, production-ready UI components
-            and templates. One payment, lifetime access.
-          </p>
-        </motion.div>
-
-        {/* Pricing Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="max-w-3xl mx-auto flex md:flex-row gap-4"
-        >
-          <div className="bg-white rounded-2xl border-2 border-black p-8 flex-1">
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              One-Time Payment
-            </p>
-            <div className="flex items-baseline justify-center mb-6">
-              <span className="text-5xl font-bold text-gray-900">
-                ₹{process.env.NEXT_PUBLIC_MEMBERSHIP_AMOUNT || "999"}
-              </span>
-              <span className="text-gray-400 ml-2 text-sm">/ lifetime</span>
-            </div>
-
-            <ul className="text-left space-y-3 mb-8">
-              {[
-                "All premium components",
-                "All templates & layouts",
-                "Lifetime updates",
-                "Priority support",
-                "Commercial license",
-              ].map((feature) => (
-                <li
-                  key={feature}
-                  className="flex items-center text-sm text-gray-700"
-                >
-                  <svg
-                    className="w-4 h-4 text-green-500 mr-3 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {feature}
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href="/membership"
-              className="block w-full bg-black text-white font-semibold py-3 rounded-lg text-center hover:bg-gray-800 transition-colors active:scale-[0.98]"
-            >
-              Get Premium Access
-            </Link>
-
-            <p className="text-xs text-gray-400 mt-4">
-              Secure payment via Cashfree
-            </p>
-          </div>
-          <div className="bg-white rounded-2xl border-2 border-black p-8 flex-1">
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              One-Time Payment
-            </p>
-            <div className="flex items-baseline justify-center mb-6">
-              <span className="text-5xl font-bold text-gray-900">
-                ₹{process.env.NEXT_PUBLIC_MEMBERSHIP_AMOUNT || "999"}
-              </span>
-              <span className="text-gray-400 ml-2 text-sm">/ lifetime</span>
-            </div>
-
-            <ul className="text-left space-y-3 mb-8">
-              {[
-                "All premium components",
-                "All templates & layouts",
-                "Lifetime updates",
-                "Priority support",
-                "Commercial license",
-              ].map((feature) => (
-                <li
-                  key={feature}
-                  className="flex items-center text-sm text-gray-700"
-                >
-                  <svg
-                    className="w-4 h-4 text-green-500 mr-3 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {feature}
-                </li>
-              ))}
-            </ul>
-
-            <Link
-              href="/membership"
-              className="block w-full bg-black text-white font-semibold py-3 rounded-lg text-center hover:bg-gray-800 transition-colors active:scale-[0.98]"
-            >
-              Get Premium Access
-            </Link>
-
-            <p className="text-xs text-gray-400 mt-4">
-              Secure payment via Cashfree
-            </p>
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  );
+  // ─── NOT LOGGED IN: Redirect to signin ───
+  return null;
 }

@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 // This client bypasses RLS, so it can create users and record payments
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export async function POST(request: Request) {
@@ -60,7 +60,10 @@ export async function POST(request: Request) {
       let isNewUser = false;
 
       // Check for existing Auth User
-      const { data: { users }, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      const {
+        data: { users },
+        error: listUsersError,
+      } = await supabaseAdmin.auth.admin.listUsers();
       if (listUsersError) {
         throw new Error(`Failed to list users: ${listUsersError.message}`);
       }
@@ -72,24 +75,30 @@ export async function POST(request: Request) {
         console.log(`Found existing Auth User: ${userId}`);
       } else {
         console.log(`Creating new Auth User for ${email}`);
-        const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          email_confirm: true, // Auto-confirm email so they can assume the identity later
-          user_metadata: { name, phone },
-        });
+        const { data: newUser, error: createUserError } =
+          await supabaseAdmin.auth.admin.createUser({
+            email,
+            email_confirm: true, // Auto-confirm email so they can assume the identity later
+            user_metadata: { name, phone },
+          });
 
         if (createUserError || !newUser.user) {
-          throw new Error(`Failed to create Auth User: ${createUserError?.message}`);
+          throw new Error(
+            `Failed to create Auth User: ${createUserError?.message}`,
+          );
         }
 
         userId = newUser.user.id;
         isNewUser = true;
       }
 
+      const orderMeta = orderData.order_meta || {};
+      const planType = orderMeta.plan_type || "premium"; // Default to premium if not found
+
       // 3. Database Operations
       try {
         // A. Upsert Public Profile (Users Table) - Safe for both new and existing
-        // We ensure the profile exists and has the active status
+        // We ensure the profile exists and has the active status with specific plan
         const { error: profileError } = await supabaseAdmin
           .from("users")
           .upsert({
@@ -98,10 +107,12 @@ export async function POST(request: Request) {
             name,
             phone,
             membership_status: "active",
+            plan_type: planType, // Store the specific plan (premium or premium-plus)
             // If updating, we keep created_at as is, just update status
           });
 
-        if (profileError) throw new Error(`Profile upsert failed: ${profileError.message}`);
+        if (profileError)
+          throw new Error(`Profile upsert failed: ${profileError.message}`);
 
         // B. Record Payment
         const { error: paymentError } = await supabaseAdmin
@@ -114,11 +125,11 @@ export async function POST(request: Request) {
             status: "SUCCESS",
           });
 
-        if (paymentError) throw new Error(`Payment recording failed: ${paymentError.message}`);
+        if (paymentError)
+          throw new Error(`Payment recording failed: ${paymentError.message}`);
 
         console.log("Payment and User processed successfully");
         return NextResponse.json({ status: "processed" });
-
       } catch (dbError: any) {
         console.error("Database operation failed:", dbError.message);
 
@@ -134,7 +145,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ status: "ignored" });
-
   } catch (error: any) {
     console.error("Webhook Error:", error);
     return NextResponse.json(
