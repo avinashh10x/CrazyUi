@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { Cashfree } from "cashfree-pg";
-import { supabase } from "@/lib/supabase";
+import cashfree from "@/lib/cashfree";
+import { createClient } from "@supabase/supabase-js";
 
-Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment =
-  process.env.CASHFREE_ENV === "PROD"
-    ? Cashfree.Environment.PRODUCTION
-    : Cashfree.Environment.SANDBOX;
+// Initialize Supabase Admin Client for server-side operations
+// This client bypasses RLS, so it can create users and record payments
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const signature = request.headers.get("x-webhook-signature");
     const timestamp = request.headers.get("x-webhook-timestamp");
-    const body = await request.text(); // Raw body for verification
+    const body = await request.text();
 
     if (!signature || !timestamp) {
       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     // Verify Signature
     try {
-      Cashfree.PGVerifyWebhookSignature(signature, body, timestamp);
+      cashfree.PGVerifyWebhookSignature(signature, body, timestamp);
     } catch (err) {
       console.error("Webhook signature verification failed", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -41,63 +41,100 @@ export async function POST(request: Request) {
       const cfPaymentId = paymentData.cf_payment_id;
       const paymentAmount = paymentData.payment_amount;
 
-      // 1. Check if user exists, create if not
-      const { data: existingUser, error: userFetchError } = await supabase
-        .from("users")
-        .select("email")
-        .eq("email", email)
+      console.log(`Processing payment for ${email}, Order: ${orderId}`);
+
+      // 1. Idempotency Check: Don't process if payment already recorded
+      const { data: existingPayment } = await supabaseAdmin
+        .from("payments")
+        .select("id")
+        .eq("cf_payment_id", cfPaymentId)
         .single();
 
-      if (!existingUser) {
-        const { error: createUserError } = await supabase.from("users").insert({
-          name,
+      if (existingPayment) {
+        console.log("Payment already recorded:", cfPaymentId);
+        return NextResponse.json({ status: "ignored_duplicate" });
+      }
+
+      // 2. User Resolution (Atomic-like flow with Rollback)
+      let userId: string | null = null;
+      let isNewUser = false;
+
+      // Check for existing Auth User
+      const { data: { users }, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listUsersError) {
+        throw new Error(`Failed to list users: ${listUsersError.message}`);
+      }
+
+      const existingAuthUser = users.find((u) => u.email === email);
+
+      if (existingAuthUser) {
+        userId = existingAuthUser.id;
+        console.log(`Found existing Auth User: ${userId}`);
+      } else {
+        console.log(`Creating new Auth User for ${email}`);
+        const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
           email,
-          phone,
-          membership_status: "active",
+          email_confirm: true, // Auto-confirm email so they can assume the identity later
+          user_metadata: { name, phone },
         });
 
-        if (createUserError) {
-          console.error("Error creating user:", createUserError);
-          return NextResponse.json(
-            { error: "Failed to create user" },
-            { status: 500 },
-          );
+        if (createUserError || !newUser.user) {
+          throw new Error(`Failed to create Auth User: ${createUserError?.message}`);
         }
-      } else {
-        // Update existing user status if needed
-        await supabase
+
+        userId = newUser.user.id;
+        isNewUser = true;
+      }
+
+      // 3. Database Operations
+      try {
+        // A. Upsert Public Profile (Users Table) - Safe for both new and existing
+        // We ensure the profile exists and has the active status
+        const { error: profileError } = await supabaseAdmin
           .from("users")
-          .update({ membership_status: "active" })
-          .eq("email", email);
-      }
+          .upsert({
+            id: userId,
+            email,
+            name,
+            phone,
+            membership_status: "active",
+            // If updating, we keep created_at as is, just update status
+          });
 
-      // 2. Record Payment
-      const { error: paymentError } = await supabase.from("payments").insert({
-        order_id: orderId,
-        cf_payment_id: cfPaymentId,
-        email,
-        amount: paymentAmount,
-        status: "SUCCESS",
-      });
+        if (profileError) throw new Error(`Profile upsert failed: ${profileError.message}`);
 
-      if (paymentError) {
-        // If duplicate payment ID, likely idempotent retry. Log and ignore.
-        if (paymentError.code === "23505") {
-          // Unique violation
-          console.log("Payment already recorded:", cfPaymentId);
-          return NextResponse.json({ status: "ignored" });
+        // B. Record Payment
+        const { error: paymentError } = await supabaseAdmin
+          .from("payments")
+          .insert({
+            order_id: orderId,
+            cf_payment_id: cfPaymentId,
+            email,
+            amount: paymentAmount,
+            status: "SUCCESS",
+          });
+
+        if (paymentError) throw new Error(`Payment recording failed: ${paymentError.message}`);
+
+        console.log("Payment and User processed successfully");
+        return NextResponse.json({ status: "processed" });
+
+      } catch (dbError: any) {
+        console.error("Database operation failed:", dbError.message);
+
+        // ROLLBACK: If we created a new Auth User but failed to set up the DB profile/payment,
+        // we delete the Auth User to ensure valid state (so they can try again or be created correctly next time).
+        if (isNewUser && userId) {
+          console.log(`Rolling back: Deleting Auth User ${userId}`);
+          await supabaseAdmin.auth.admin.deleteUser(userId);
         }
-        console.error("Error recording payment:", paymentError);
-        return NextResponse.json(
-          { error: "Failed to record payment" },
-          { status: 500 },
-        );
-      }
 
-      return NextResponse.json({ status: "processed" });
+        throw dbError; // Return 500
+      }
     }
 
     return NextResponse.json({ status: "ignored" });
+
   } catch (error: any) {
     console.error("Webhook Error:", error);
     return NextResponse.json(

@@ -2,8 +2,9 @@
 
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-export default function SuccessPage() {
+function SuccessContent() {
     const searchParams = useSearchParams();
     const orderId = searchParams.get('order_id');
 
@@ -115,5 +116,17 @@ export default function SuccessPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function SuccessPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+            </div>
+        }>
+            <SuccessContent />
+        </Suspense>
     );
 }

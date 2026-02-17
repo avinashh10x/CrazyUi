@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import { Cashfree } from "cashfree-pg";
-
-Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.SANDBOX;
+import cashfree from "@/lib/cashfree";
 
 export async function POST(request: Request) {
   try {
@@ -18,11 +14,13 @@ export async function POST(request: Request) {
     }
 
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const customerId = email.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 40); // Sanitize email for customer_id
+    const customerId = email
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .substring(0, 40);
 
     const requestData = {
-      order_amount: 100.0, // Fixed membership fee
-      order_currency: "INR",
+      order_amount: parseFloat(process.env.NEXT_PUBLIC_MEMBERSHIP_AMOUNT || "100"),
+      order_currency: process.env.NEXT_PUBLIC_CURRENCY || "INR",
       order_id: orderId,
       customer_details: {
         customer_id: customerId,
@@ -31,14 +29,14 @@ export async function POST(request: Request) {
         customer_phone: phone,
       },
       order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/account?order_id={order_id}`,
+        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/?order_id={order_id}`,
+        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/membership/webhook`,
       },
     };
 
-    const response = await Cashfree.PGCreateOrder("2023-08-01", requestData); // Check API version compatibility
-    const data = response.data;
+    const response = await cashfree.PGCreateOrder(requestData);
 
-    return NextResponse.json(data);
+    return NextResponse.json(response.data);
   } catch (error: any) {
     console.error("Error creating order:", error);
     return NextResponse.json(

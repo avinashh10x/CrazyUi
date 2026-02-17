@@ -33,13 +33,13 @@ export default function CheckoutForm() {
       if (data.payment_session_id) {
         // 2. Initialize Cashfree
         const cashfree = await load({
-          mode: "sandbox", // or 'production'
+          mode: "production", // Change to "sandbox" for testing
         });
 
         // 3. Open Checkout
         cashfree.checkout({
           paymentSessionId: data.payment_session_id,
-          redirectTarget: "_self", // or '_blank'
+          redirectTarget: "_self",
         });
       } else {
         alert("Failed to create order: " + JSON.stringify(data));
@@ -101,7 +101,7 @@ export default function CheckoutForm() {
           disabled={loading}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Processing..." : "Pay & Join (₹100)"}
+          {loading ? "Processing..." : "Pay & Join (₹1)"}
         </button>
       </form>
     </div>

@@ -35,12 +35,15 @@ export default function MembershipPage() {
             }
 
             // Load Cashfree SDK
-            const cashfree = await loadCashfreeSDK();
+            const CashfreeSDK = await loadCashfreeSDK();
+
+            // Initialize with production mode (change to "sandbox" for testing)
+            const cashfree = CashfreeSDK({ mode: "production" });
 
             // Initialize checkout
             const checkoutOptions = {
                 paymentSessionId: data.paymentSessionId,
-                returnUrl: `${window.location.origin}/membership/success?order_id=${data.orderId}`,
+                returnUrl: `${window.location.origin}/?order_id=${data.orderId}`,
             };
 
             cashfree.checkout(checkoutOptions);
