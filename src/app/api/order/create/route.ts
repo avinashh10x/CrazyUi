@@ -45,13 +45,39 @@ export async function POST(request: Request) {
       },
     };
 
+    // Debug logging for production issues
+    console.log("Cashfree Config:", {
+      mode: process.env.CASHFREE_MODE || "SANDBOX (default)",
+      appId: process.env.CASHFREE_APP_ID
+        ? `${process.env.CASHFREE_APP_ID.substring(0, 5)}...`
+        : "MISSING",
+      secretSet: !!process.env.CASHFREE_SECRET_KEY,
+      baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+    });
+
+    console.log(
+      "Creating Order with Data:",
+      JSON.stringify(requestData, null, 2),
+    );
+
     const response = await cashfree.PGCreateOrder(requestData);
+
+    console.log("Order Created Response:", response.data);
 
     return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error("Error creating order:", error);
+    console.error("Error creating order (Full):", error);
+    if (error.response) {
+      console.error("Error Response Data:", error.response.data);
+      console.error("Error Response Status:", error.response.status);
+      console.error("Error Response Headers:", error.response.headers);
+    }
+
     return NextResponse.json(
-      { error: error.message || "Failed to create order" },
+      {
+        error: error.message || "Failed to create order",
+        details: error.response?.data?.message || "No additional details",
+      },
       { status: 500 },
     );
   }
