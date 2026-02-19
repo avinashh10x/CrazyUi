@@ -72,7 +72,7 @@ function MembershipContent() {
 
       const data = await response.json();
 
-      if (!data.success) {
+      if (!data.payment_session_id) {
         setError(data.error || "Failed to create order");
         setLoading(false);
         return;
@@ -81,13 +81,13 @@ function MembershipContent() {
       // Load Cashfree SDK
       const CashfreeSDK = await loadCashfreeSDK();
 
-      // Initialize with production mode (change to "sandbox" for testing)
+      // Initialize with sandbox mode (change to "production" for live)
       const cashfree = CashfreeSDK({ mode: "production" });
 
       // Initialize checkout
       const checkoutOptions = {
-        paymentSessionId: data.paymentSessionId,
-        returnUrl: `${window.location.origin}/?order_id=${data.orderId}`,
+        paymentSessionId: data.payment_session_id,
+        returnUrl: `${window.location.origin}/?order_id=${data.order_id}`,
       };
 
       cashfree.checkout(checkoutOptions);

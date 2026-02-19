@@ -1,0 +1,47 @@
+Starting Cashfree Instance Test (Dual Check)...
+Cashfree class loaded.
+Env loaded.
+Instance created.
+Attempt 1: PGCreateOrder("2023-08-01", request)
+Attempt 1 failed: {"code":"_invalid","help":"Check latest errors and resolution from Merchant Dashboard API logs: https://bit.ly/4glEd0W Help Document: https://bit.ly/4eeZYO9","message":" should be request.CreateOrderRequest","type":"invalid_request_error"}
+Attempt 2: PGCreateOrder(request)
+SUCCESS (Attempt 2)!
+Response: {
+  "cart_details": null,
+  "cf_order_id": "2204668291",
+  "created_at": "2026-02-20T00:01:23+05:30",
+  "customer_details": {
+    "customer_id": "cust_001",
+    "customer_name": "Test User",
+    "customer_email": null,
+    "customer_phone": "9999999999",
+    "customer_uid": null
+  },
+  "entity": "order",
+  "order_amount": 1,
+  "order_currency": "INR",
+  "order_expiry_time": "2026-03-22T00:01:23+05:30",
+  "order_id": "order_1771525887883",
+  "order_meta": {
+    "notify_url": null,
+    "payment_methods": null,
+    "payment_methods_filters": null,
+    "return_url": "https://example.com/return"
+  },
+  "order_note": null,
+  "order_splits": [],
+  "order_status": "ACTIVE",
+  "order_tags": null,
+  "payment_session_id": "session_1XbN9QspyoJ2JiHYJ4Z3ZoRbUt-1zzksbyRxXZpB53A89Gl1aCQ-7XJEMCiyoUnUSogdGRHDxkiE6HlclDqxOXx04RgUHhlnRbnhVU_tlEtX5JRdALF4BSnlyjDAzQpaymentpayment",
+  "products": {
+    "one_click_checkout": {
+      "enabled": false,
+      "conditions": []
+    },
+    "verify_pay": {
+      "enabled": false,
+      "conditions": []
+    }
+  },
+  "terminal_data": null
+}
