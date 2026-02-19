@@ -78,11 +78,39 @@ function Signin() {
         return;
       }
 
-      await verifyOtpCode(email, code);
-      router.push("/");
+      const { user, session } = await verifyOtpCode(email, code);
+
+      if (!session || !user) {
+        throw new Error("No session created");
+      }
+
+      // Fetch user details for the redirect
+      const res = await fetch("/api/user/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await res.json();
+
+      // Construct redirect URL
+      const params = new URLSearchParams();
+      params.append("userId", user.id);
+      params.append("email", user.email || "");
+
+      if (data.user) {
+        params.append("name", data.user.name || "");
+        params.append("phone", data.user.phone || "");
+        params.append("membership_status", data.user.membership_status || "");
+      }
+
+      // Redirect to Framer
+      window.location.href = `https://positive-sheet-237822.framer.app/about?${params.toString()}`;
     } catch (err: any) {
       setError(err.message || "Invalid OTP");
-    } finally {
       setLoading(false);
     }
   };
