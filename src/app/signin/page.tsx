@@ -4,9 +4,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { signInWithEmail, verifyOtpCode } from "@/lib/supabase-client";
 import { useRouter } from "next/navigation";
+import { useAuthUser, type StoredUser } from "@/hooks/useAuthUser";
 
 function Signin() {
   const router = useRouter();
+  const { saveUser } = useAuthUser();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -95,6 +97,17 @@ function Signin() {
       });
 
       const data = await res.json();
+
+      // Save user to localStorage for navbar checking
+      const userData: StoredUser = {
+        id: user.id,
+        email: user.email || email,
+        name: data.user?.name || "",
+        phone: data.user?.phone || "",
+        membership_status: data.user?.membership_status || "inactive",
+        access_token: session.access_token,
+      };
+      saveUser(userData);
 
       // Construct redirect URL
       const params = new URLSearchParams();

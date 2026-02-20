@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  membership_status: 'active' | 'inactive';
+  membership_status: "active" | "inactive";
   created_at: string;
 }
 
@@ -15,7 +15,7 @@ export interface Payment {
   cf_payment_id: string | null;
   email: string;
   amount: number;
-  status: 'SUCCESS' | 'FAILED' | 'PENDING';
+  status: "SUCCESS" | "FAILED" | "PENDING";
   created_at: string;
 }
 
