@@ -89,24 +89,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Fetch User Profile and Payments in Parallel
-    // Since we are using the authenticated client, RLS will automatically ensure
-    // we only see data we are allowed to see.
+    // 4. Create Admin Client to fetch user data (bypass RLS after auth verification)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    // 5. Fetch User Profile and Payments in Parallel
     const [userProfileResult, paymentsResult] = await Promise.all([
-      supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId) // Redundant with RLS but good practice
-        .single(),
-      supabase
+      supabaseAdmin.from("users").select("*").eq("id", userId).single(),
+      supabaseAdmin
         .from("payments")
         .select("*")
-        .eq("email", user.email || "") // Assuming link is via email as per investigation
+        .eq("email", user.email || "")
         .order("created_at", { ascending: false }),
     ]);
 
-    // Handle potential errors (e.g., user profile not found yet)
-    // It's possible the user is in Auth but not yet in public 'users' table
+    // Handle potential errors
     const userProfile = userProfileResult.data;
     const payments = paymentsResult.data || [];
 
@@ -115,9 +114,12 @@ export async function POST(request: Request) {
       userProfileResult.error.code !== "PGRST116"
     ) {
       console.error("Error fetching user profile:", userProfileResult.error);
+      console.log(
+        "User Profile Not Found - This might mean webhook hasn't completed yet",
+      );
     }
 
-    // 5. Construct Response
+    // 6. Construct Response
     return NextResponse.json({
       user: {
         id: user.id,

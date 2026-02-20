@@ -108,7 +108,7 @@ function Signin() {
       }
 
       // Redirect to Framer
-      window.location.href = `https://positive-sheet-237822.framer.app/about?${params.toString()}`;
+      window.location.href = `${process.env.NEXT_PUBLIC_REDIRECT_URL}?${params.toString()}`;
     } catch (err: any) {
       setError(err.message || "Invalid OTP");
       setLoading(false);
