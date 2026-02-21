@@ -1,267 +1,120 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { supabaseClient } from "@/lib/supabase-client";
+import { motion } from "framer-motion";
 import Link from "next/link";
 
-interface UserData {
-  id: string;
-  email: string;
-  name: string;
-  phone: string;
-  membership_status: string;
-}
-
-interface Payment {
-  order_id: string;
-  cf_payment_id: string;
-  email: string;
-  amount: number;
-  status: string;
-  created_at: string;
-}
-
 export default function HomePage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    const redirect = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession();
+
+        if (session?.user) {
+          // Signed in — fetch user details and forward to external site
+          const res = await fetch("/api/user/me", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          const params = new URLSearchParams();
+          params.append("userId", session.user.id);
+          params.append("email", session.user.email || "");
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              params.append("name", data.user.name || "");
+              params.append("phone", data.user.phone || "");
+              params.append(
+                "membership_status",
+                data.user.membership_status || "",
+              );
+            }
+          }
+
+          // window.location.href = `${process.env.NEXT_PUBLIC_REDIRECT_URL}?${params.toString()}`;
+
+          // After 10 seconds, show the welcome screen
+          setTimeout(() => {
+            setShowWelcome(true);
+          }, 5000);
+        } else {
+          // Not signed in — go to signin page
+          window.location.href = "/signin";
+        }
+      } catch {
+        window.location.href = "/signin";
+      }
+    };
+
+    redirect();
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession();
-
-      if (session?.user) {
-        setIsLoggedIn(true);
-
-        // Fetch user details from our API
-        const res = await fetch("/api/user/me", {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setUserData(data.user);
-          setPayments(data.payments);
-        }
-      } else {
-        // Redirect to signin if not authenticated
-        router.push("/signin");
-      }
-    } catch (err) {
-      console.error("Auth check failed:", err);
-      router.push("/signin");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await supabaseClient.auth.signOut();
-    setIsLoggedIn(false);
-    setUserData(null);
-    setPayments([]);
-  };
-
-  if (loading) {
+  if (showWelcome) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-black border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  // ─── LOGGED IN: Account Page ───
-  if (isLoggedIn && userData) {
-    const isPremium = userData.membership_status === "active";
-
-    return (
-      <div className="min-h-screen bg-gray-50">
-        Header
-        <header className="bg-white border-b border-gray-200">
-          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-            <img src="/logo.png" alt="CrazyUI" className="w-24" />
-            <button
-              onClick={handleSignOut}
-              className="text-sm text-gray-500 hover:text-black transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        <div className="max-w-4xl mx-auto px-4 py-10">
-          {/* Welcome */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">
-              Welcome back, {userData.name || "User"}
+      <div className="min-h-[calc(100vh-5rem)] bg-white flex items-center justify-center p-4">
+        <motion.div
+          className="max-w-md w-full text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <div className="mb-6">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Welcome to CrazyUI
             </h1>
-            <p className="text-gray-500 text-sm">{userData.email}</p>
-          </motion.div>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              You have successfully joined the membership. Enjoy unlimited
+              access to premium components, templates, and exclusive resources.
+            </p>
+          </div>
 
-          {/* Membership Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="mt-8"
-          >
-            <div
-              className={`rounded-2xl p-6 border ${
-                isPremium
-                  ? "bg-gradient-to-r from-black to-gray-800 text-white border-transparent"
-                  : "bg-white border-gray-200"
-              }`}
+          <div className="flex gap-3">
+            <Link
+              href={"https://crazyui.com/"}
+              className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-sm"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p
-                    className={`text-xs font-medium uppercase tracking-wider ${
-                      isPremium ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Membership
-                  </p>
-                  <p className="text-xl font-bold mt-1">
-                    {isPremium ? "Premium Active ✨" : "Free Plan"}
-                  </p>
-                </div>
-                {isPremium ? (
-                  <div className="bg-green-500/20 text-green-400 text-xs font-semibold px-3 py-1 rounded-full">
-                    ACTIVE
-                  </div>
-                ) : (
-                  <Link
-                    href="/membership"
-                    className="bg-black text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    Upgrade
-                  </Link>
-                )}
-              </div>
-              {isPremium && (
-                <p className="text-gray-400 text-sm mt-3">
-                  Lifetime access to all premium components & templates
-                </p>
-              )}
-            </div>
-          </motion.div>
-
-          {/* User Details */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="mt-6"
-          >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Account Details
-            </h2>
-            <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-              <div className="flex justify-between items-center px-6 py-4">
-                <span className="text-sm text-gray-500">Name</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {userData.name || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center px-6 py-4">
-                <span className="text-sm text-gray-500">Email</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {userData.email}
-                </span>
-              </div>
-              <div className="flex justify-between items-center px-6 py-4">
-                <span className="text-sm text-gray-500">Phone</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {userData.phone || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center px-6 py-4">
-                <span className="text-sm text-gray-500">Status</span>
-                <span
-                  className={`text-sm font-semibold ${
-                    isPremium ? "text-green-600" : "text-gray-400"
-                  }`}
-                >
-                  {isPremium ? "Premium Member" : "Free"}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Payment History */}
-          {payments.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              className="mt-6"
+              Home
+            </Link>
+            <Link
+              href={
+                `${process.env.NEXT_PUBLIC_REDIRECT_URL}` || "/account"
+              }
+              className="flex-1 bg-white text-gray-900 font-semibold py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
             >
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Payment History
-              </h2>
-              <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-                {payments.map((payment) => (
-                  <div
-                    key={payment.cf_payment_id}
-                    className="flex items-center justify-between px-6 py-4"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        ₹{payment.amount}
-                      </p>
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">
-                        {payment.order_id}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                          payment.status === "SUCCESS"
-                            ? "bg-green-50 text-green-600"
-                            : "bg-red-50 text-red-600"
-                        }`}
-                      >
-                        {payment.status}
-                      </span>
-                      {payment.created_at && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(payment.created_at).toLocaleDateString(
-                            "en-IN",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
+              Account
+            </Link>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
-  // ─── NOT LOGGED IN: Redirect to signin ───
-  return null;
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="animate-spin rounded-full h-10 w-10 border-2 border-black border-t-transparent"></div>
+    </div>
+  );
 }
