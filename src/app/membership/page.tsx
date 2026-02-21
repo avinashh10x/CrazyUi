@@ -98,25 +98,124 @@ function MembershipContent() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Join CrazyUI - {plan.name}
-          </h1>
-          <p className="text-gray-500">{plan.description}</p>
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row px-10 py-12  gap-10">
+      {/* ─── LEFT SIDE: Product Info ─── */}
+      <div className="w-full lg:w-[45%]  flex flex-col justify-center">
+        <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900 mb-6">
+          CrazyUI {plan.name}
+        </h1>
+
+        {/* Product visual */}
+        <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden mb-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <span className="text-5xl font-black bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                CrazyUI
+              </span>
+              <p className="text-sm text-indigo-400 font-medium mt-1">
+                {plan.name}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl p-8 border-2 border-black">
-          {/* Price Badge */}
-          <div className="bg-black text-white rounded-xl p-6 mb-6 text-center">
-            <div className="text-sm font-medium mb-1 opacity-80">
-              Membership Fee - {plan.name}
-            </div>
-            <div className="text-4xl font-bold">₹{plan.amount}</div>
-            <div className="text-sm opacity-60 mt-1">One-time payment</div>
+        <p className="text-gray-500 text-sm leading-relaxed mb-8">
+          Simplify your design process with customizable Figma &amp; Framer
+          components, templates, and design assets — giving you everything you
+          need to design quickly and efficiently.
+        </p>
+
+        {/* Testimonials */}
+        <div className="space-y-5 mb-8">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Hossein Fathi
+              <span className="font-normal text-gray-400">
+                {" "}
+                — Professional UI/UX Designer
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mt-1 italic leading-relaxed">
+              &ldquo;CrazyUI has a wide variety of design on each component. A
+              comprehensive products everyone should checkout.&rdquo;
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Razvan Badea
+              <span className="font-normal text-gray-400">
+                {" "}
+                — Founder of Artone Studio
+              </span>
+            </p>
+            <p className="text-sm text-gray-500 mt-1 italic leading-relaxed">
+              &ldquo;CrazyUI is a fantastic tool, not just for its resources but
+              also for exploring fresh ideas. The components are well crafted. A
+              must-have!&rdquo;
+            </p>
+          </div>
+        </div>
+
+        {/* Plan selector */}
+        <div className="space-y-3">
+          {(Object.entries(PLANS) as [PlanType, PlanConfig][]).map(
+            ([key, p]) => {
+              const isSelected = key === planType;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("plan", key);
+                    router.push(`/membership?${params.toString()}`);
+                  }}
+                  className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+                    isSelected
+                      ? "border-black bg-white"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? "border-black" : "border-gray-300"
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="w-2.5 h-2.5 rounded-full bg-black" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          CrazyUI {p.name} — ₹{p.amount} Lifetime
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {p.features.slice(0, 3).join(", ")}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-gray-900">
+                      ₹{p.amount}
+                    </span>
+                  </div>
+                </button>
+              );
+            },
+          )}
+        </div>
+      </div>
+
+      {/* ─── RIGHT SIDE: Payment Form ─── */}
+      <div className="w-full lg:w-[55%]  border-gray-200 flex flex-col justify-center">
+        <div className="max-w-md mx-auto w-full">
+          {/* Price summary */}
+          <div className="mb-8">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">
+              Complete your purchase
+            </h2>
+            <p className="text-sm text-gray-400">{plan.description}</p>
           </div>
 
           {/* Form */}
@@ -132,7 +231,7 @@ function MembershipContent() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
                 placeholder="John Doe"
               />
             </div>
@@ -148,7 +247,7 @@ function MembershipContent() {
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
                 placeholder="john@example.com"
               />
             </div>
@@ -165,7 +264,7 @@ function MembershipContent() {
                 onChange={(e) =>
                   setFormData({ ...formData, phone: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
                 placeholder="9999999999"
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -178,6 +277,18 @@ function MembershipContent() {
                 {error}
               </div>
             )}
+
+            {/* Subtotal / Total */}
+            <div className="border-t border-gray-200 pt-4 space-y-2">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Subtotal</span>
+                <span>₹{plan.amount}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold text-gray-900">
+                <span>Total</span>
+                <span>₹{plan.amount}</span>
+              </div>
+            </div>
 
             <button
               type="submit"
@@ -208,7 +319,7 @@ function MembershipContent() {
                   Processing...
                 </span>
               ) : (
-                "Pay & Join CrazyUI"
+                `Pay ₹${plan.amount}`
               )}
             </button>
           </form>
@@ -228,7 +339,7 @@ function MembershipContent() {
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
               />
             </svg>
-            Secure payment powered by Cashfree
+            Payments are secure and encrypted
           </div>
         </div>
       </div>
