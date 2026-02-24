@@ -87,7 +87,7 @@ function MembershipContent() {
       // Initialize checkout
       const checkoutOptions = {
         paymentSessionId: data.payment_session_id,
-        returnUrl: `${window.location.origin}/?order_id=${data.order_id}`,
+        returnUrl: `${window.location.origin}/account?order_id=${data.order_id}`,
       };
 
       cashfree.checkout(checkoutOptions);
@@ -100,7 +100,7 @@ function MembershipContent() {
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row px-10 lg:px-40 py-12  gap-10">
       <div className="flex flex-col lg:flex-row w-full mx-auto gap-10 justify-between mt-5">
-      {/* ─── LEFT SIDE: Product Info ─── */}
+        {/* ─── LEFT SIDE: Product Info ─── */}
         <div className="w-full lg:w-[45%]    flex flex-col justify-center ">
           <h1 className="text-2xl font-medium text-gray-900 mb-6">
             CrazyUI {plan.name}
