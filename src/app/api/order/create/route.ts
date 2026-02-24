@@ -39,13 +39,14 @@ export async function POST(request: Request) {
         customer_phone: phone,
       },
       order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/?order_id={order_id}`,
-        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/membership/webhook`,
-        plan_type: planType, // Store plan type for reference
+        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://crazyui.com"}/account?order_id={order_id}`,
+        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://crazyui.com"}/api/membership/webhook`,
+      },
+      order_tags: {
+        plan_type: planType,
       },
     };
 
-    // Debug logging for production issues
     console.log("Cashfree Config:", {
       mode: process.env.CASHFREE_MODE || "SANDBOX (default)",
       appId: process.env.CASHFREE_APP_ID
@@ -70,7 +71,6 @@ export async function POST(request: Request) {
     if (error.response) {
       console.error("Error Response Data:", error.response.data);
       console.error("Error Response Status:", error.response.status);
-      console.error("Error Response Headers:", error.response.headers);
     }
 
     return NextResponse.json(
