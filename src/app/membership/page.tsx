@@ -225,7 +225,7 @@ function MembershipContent() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
-                  placeholder="Shivanand pandey"
+                  placeholder="your name"
                 />
               </div>
 
@@ -241,7 +241,7 @@ function MembershipContent() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
-                  placeholder="shivandand@crazyui.com"
+                  placeholder="youremail@example.com"
                 />
               </div>
 

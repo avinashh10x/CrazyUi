@@ -39,8 +39,8 @@ export async function POST(request: Request) {
         customer_phone: phone,
       },
       order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://crazyui.com"}/account?order_id={order_id}`,
-        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://crazyui.com"}/api/membership/webhook`,
+        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://auth.crazyui.com"}/account?order_id={order_id}`,
+        notify_url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://auth.crazyui.com"}/api/membership/webhook`,
       },
       order_tags: {
         plan_type: planType,
