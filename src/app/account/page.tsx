@@ -7,7 +7,10 @@ import { Suspense } from "react";
 
 function AccountContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get("order_id");
+  // Dodo redirects back with payment_id in the URL
+  // Also support legacy order_id for backward compatibility
+  const paymentId =
+    searchParams.get("payment_id") || searchParams.get("order_id");
 
   const [loading, setLoading] = useState(true);
   const [payment, setPayment] = useState<any>(null);
@@ -16,7 +19,7 @@ function AccountContent() {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (!orderId) {
+    if (!paymentId) {
       setLoading(false);
       return;
     }
@@ -25,13 +28,11 @@ function AccountContent() {
       try {
         setLoading(true);
 
-        // Call our verify endpoint — this handles:
-        // 1. Already processed → returns existing data
-        // 2. Not processed yet → calls Cashfree API, creates user/auth/payment
-        const response = await fetch("/api/order/verify", {
+        // Call our verify endpoint
+        const response = await fetch("/api/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order_id: orderId }),
+          body: JSON.stringify({ payment_id: paymentId }),
         });
 
         const data = await response.json();
@@ -39,7 +40,7 @@ function AccountContent() {
         if (!response.ok) {
           // If verify failed and we haven't retried much, wait and try again
           // (webhook might still be processing)
-          if (retryCount < 3) {
+          if (retryCount < 5) {
             console.log(
               `Verify attempt ${retryCount + 1} failed, retrying in 3s...`,
             );
@@ -54,6 +55,13 @@ function AccountContent() {
         }
 
         if (data.status === "not_paid") {
+          if (retryCount < 5) {
+            // Payment might still be processing
+            setTimeout(() => {
+              setRetryCount((prev) => prev + 1);
+            }, 3000);
+            return;
+          }
           setError("Payment was not completed. Please try again.");
           setLoading(false);
           return;
@@ -61,15 +69,14 @@ function AccountContent() {
 
         // Payment is either "already_processed" or "processed"
         setPayment({
-          order_id: orderId,
+          payment_id: paymentId,
           status: data.payment_status,
-          amount: data.user?.payment_id ? "Paid" : "N/A",
         });
         setUser(data.user);
         setLoading(false);
       } catch (err: any) {
         console.error("Verify error:", err);
-        if (retryCount < 3) {
+        if (retryCount < 5) {
           setTimeout(() => {
             setRetryCount((prev) => prev + 1);
           }, 3000);
@@ -81,12 +88,12 @@ function AccountContent() {
     };
 
     verifyPayment();
-  }, [orderId, retryCount]);
+  }, [paymentId, retryCount]);
 
-  if (!orderId) {
+  if (!paymentId) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-bold text-red-600">No Order ID Found</h1>
+        <h1 className="text-2xl font-bold text-red-600">No Payment ID Found</h1>
         <p className="mt-2 text-gray-600">Please complete a payment first.</p>
         <Link href="/" className="mt-4 text-blue-600 hover:underline">
           Go Home
@@ -168,7 +175,9 @@ function AccountContent() {
   }
 
   const isSuccess =
-    payment?.status?.toUpperCase() === "SUCCESS" || payment?.status === "PAID";
+    payment?.status?.toUpperCase() === "SUCCESS" ||
+    payment?.status?.toUpperCase() === "PAID" ||
+    payment?.status?.toUpperCase() === "SUCCEEDED";
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
@@ -220,9 +229,9 @@ function AccountContent() {
         {isSuccess && (
           <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
             <div className="flex justify-between py-2 border-b border-gray-200">
-              <span className="text-gray-500">Order ID</span>
+              <span className="text-gray-500">Payment ID</span>
               <span className="font-mono font-medium text-gray-900 text-sm">
-                {payment.order_id}
+                {payment.payment_id}
               </span>
             </div>
             {user?.email && (

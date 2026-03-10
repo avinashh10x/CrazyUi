@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Basic in-memory rate limiter
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -32,7 +33,6 @@ function isRateLimited(ip: string): boolean {
 export async function POST(request: Request) {
   try {
     // 1. Rate Limiting (Basic IP-based)
-    // Note: In production, use X-Forwarded-For or a proper middleware/service like Upstash
     const ip = request.headers.get("x-forwarded-for") || "unknown";
     if (isRateLimited(ip)) {
       return NextResponse.json(
@@ -89,13 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Create Admin Client to fetch user data (bypass RLS after auth verification)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-
-    // 5. Fetch User Profile and Payments in Parallel
+    // 4. Fetch User Profile and Payments in Parallel (using shared admin client)
     const [userProfileResult, paymentsResult] = await Promise.all([
       supabaseAdmin.from("users").select("*").eq("id", userId).single(),
       supabaseAdmin
@@ -113,13 +107,13 @@ export async function POST(request: Request) {
       userProfileResult.error &&
       userProfileResult.error.code !== "PGRST116"
     ) {
-      console.error("Error fetching user profile:", userProfileResult.error);
-      console.log(
-        "User Profile Not Found - This might mean webhook hasn't completed yet",
+      console.error(
+        "Error fetching user profile:",
+        userProfileResult.error.message,
       );
     }
 
-    // 6. Construct Response
+    // 5. Construct Response
     return NextResponse.json({
       user: {
         id: user.id,
@@ -132,7 +126,7 @@ export async function POST(request: Request) {
       payments: payments,
     });
   } catch (error: any) {
-    console.error("Error in user details endpoint:", error);
+    console.error("Error in user details endpoint:", error.message);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
       { status: 500 },
