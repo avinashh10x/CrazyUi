@@ -1,58 +1,36 @@
 import { NextResponse } from "next/server";
-import cashfree from "@/lib/cashfree";
+import dodo from "@/lib/dodo";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 /**
- * Fallback verification endpoint.
- * Called from the account page when the webhook hasn't processed the payment yet.
- * This calls Cashfree's API to verify the payment status, then creates the
- * user/auth/payment records if payment was successful.
+ * Dodo Payments verification endpoint.
+ * Called from the account page after payment redirect.
+ * POST /api/verify
  *
- * Protected by requiring a valid order_id format (basic validation).
- * The order_id format is: order_{timestamp}_{random}
+ * Body: { payment_id }
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { order_id } = body;
+    const { payment_id } = body;
 
-    if (!order_id) {
-      return NextResponse.json({ error: "Missing order_id" }, { status: 400 });
-    }
-
-    // Basic validation: order_id must match our format
-    if (
-      !order_id.startsWith("order_") ||
-      order_id.length < 15 ||
-      order_id.length > 60
-    ) {
+    if (!payment_id) {
       return NextResponse.json(
-        { error: "Invalid order_id format" },
+        { error: "Missing payment_id" },
         { status: 400 },
       );
     }
 
-    // Rate limiting: simple timestamp check — don't allow orders older than 1 hour
-    const timestampStr = order_id.split("_")[1];
-    const orderTimestamp = parseInt(timestampStr, 10);
-    if (isNaN(orderTimestamp) || Date.now() - orderTimestamp > 60 * 60 * 1000) {
-      return NextResponse.json(
-        { error: "Order expired or invalid" },
-        { status: 400 },
-      );
-    }
+    console.log(`🔍 Verifying Dodo payment: ${payment_id}`);
 
-    console.log(`🔍 Verifying: ${order_id}`);
-
-    // 1. Check if already processed
+    // 1. Check if already processed in our DB
     const { data: existingPayment } = await supabaseAdmin
       .from("payments")
       .select("id, status")
-      .eq("order_id", order_id)
+      .eq("order_id", payment_id)
       .single();
 
     if (existingPayment) {
-      // Fetch the user associated with this payment
       const { data: user } = await supabaseAdmin
         .from("users")
         .select("*")
@@ -66,76 +44,61 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Verify with Cashfree
-    let orderResponse;
+    // 2. Verify with Dodo Payments API
+    let paymentData: any;
     try {
-      orderResponse = await cashfree.PGFetchOrder(order_id);
-    } catch (cfError: any) {
-      console.error("❌ Cashfree fetch error:", cfError.message);
+      paymentData = await dodo.payments.retrieve(payment_id);
+    } catch (fetchErr: any) {
+      console.error("❌ Dodo fetch error:", fetchErr.message);
       return NextResponse.json(
-        { error: "Failed to verify order with payment provider" },
+        { error: "Failed to verify payment with Dodo Payments" },
         { status: 502 },
       );
     }
 
-    const orderData = orderResponse.data as any;
+    const paymentStatus = (paymentData as any).status;
 
-    if (orderData.order_status !== "PAID") {
+    if (paymentStatus !== "succeeded" && paymentStatus !== "SUCCEEDED") {
       return NextResponse.json({
         status: "not_paid",
-        order_status: orderData.order_status,
+        order_status: paymentStatus,
       });
     }
 
-    // 3. Payment is PAID — create user and record payment
-    const customerDetails = orderData.customer_details || {};
-    const email = customerDetails.customer_email;
-    const phone = customerDetails.customer_phone;
-    const name = customerDetails.customer_name;
-    const paymentAmount = orderData.order_amount;
+    // 3. Payment succeeded — process it
+    const customerEmail =
+      (paymentData as any).customer?.email || (paymentData as any).email;
+    const customerName =
+      (paymentData as any).customer?.name || (paymentData as any).name || "";
+    const paymentAmount = ((paymentData as any).total_amount || 0) / 100;
+    const metadata = (paymentData as any).metadata || {};
+    const planType = metadata.plan_type || "premium";
 
-    // Get plan type from order tags
-    const orderTags = orderData.order_tags || {};
-    const planType = orderTags.plan_type || "premium";
-
-    // Get payment details from Cashfree
-    let cfPaymentId = "";
-    try {
-      const paymentsResponse = await cashfree.PGOrderFetchPayments(order_id);
-      const payments = paymentsResponse.data;
-      if (payments && payments.length > 0) {
-        const successPayment = payments.find(
-          (p: any) => p.payment_status === "SUCCESS",
-        );
-        if (successPayment) {
-          cfPaymentId = String(successPayment.cf_payment_id);
-        }
-      }
-    } catch (payErr: any) {
-      console.warn("⚠️ Could not fetch payment details");
-      cfPaymentId = `verify_${order_id}`;
+    if (!customerEmail) {
+      return NextResponse.json(
+        { error: "No customer email found on payment" },
+        { status: 400 },
+      );
     }
 
-    // 4. User Resolution — scalable (same approach as webhook)
+    // 4. User Resolution (scalable)
     let userId: string | null = null;
     let isNewUser = false;
 
-    // Check DB users first
     const { data: existingDbUser } = await supabaseAdmin
       .from("users")
       .select("id")
-      .eq("email", email)
+      .eq("email", customerEmail)
       .single();
 
     if (existingDbUser) {
       userId = existingDbUser.id;
     } else {
-      // Try to create auth user — handle "already exists" gracefully
       const { data: newUser, error: createError } =
         await supabaseAdmin.auth.admin.createUser({
-          email,
+          email: customerEmail,
           email_confirm: true,
-          user_metadata: { name, phone },
+          user_metadata: { name: customerName },
         });
 
       if (createError) {
@@ -143,20 +106,19 @@ export async function POST(request: Request) {
           createError.message.includes("already been registered") ||
           createError.message.includes("already exists")
         ) {
-          // User exists in auth — find them
           const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers({
             page: 1,
             perPage: 1000,
           });
 
-          const existingAuthUser = authUsers?.users?.find(
-            (u) => u.email === email,
+          const found = authUsers?.users?.find(
+            (u) => u.email === customerEmail,
           );
 
-          if (existingAuthUser) {
-            userId = existingAuthUser.id;
+          if (found) {
+            userId = found.id;
           } else {
-            throw new Error(`Auth user exists for ${email} but not found`);
+            throw new Error(`Auth user exists but not found: ${customerEmail}`);
           }
         } else {
           throw new Error(`Failed to create Auth user: ${createError.message}`);
@@ -174,35 +136,32 @@ export async function POST(request: Request) {
       throw new Error("Could not resolve user ID");
     }
 
-    // 5. Record payment (UNIQUE constraint on order_id prevents duplicates)
+    // 5. Record payment
     try {
       const { data: insertedPayments, error: paymentError } =
         await supabaseAdmin
           .from("payments")
           .insert({
-            order_id,
-            cf_payment_id: cfPaymentId,
-            email,
-            name,
-            phone,
+            order_id: payment_id,
+            cf_payment_id: payment_id,
+            email: customerEmail,
+            name: customerName,
+            phone: "",
             amount: paymentAmount,
             status: "SUCCESS",
             plan_type: planType,
-            payment_method: "online",
+            payment_method: "dodo_payments",
             payment_timestamp: new Date().toISOString(),
           })
           .select("id");
 
       if (paymentError) {
-        // Race condition: webhook already processed this
         if (paymentError.code === "23505") {
-          console.log(`⏭️ Race condition caught in verify: ${order_id}`);
-
-          // Fetch the existing data instead
+          // Race condition: webhook already processed
           const { data: racePayment } = await supabaseAdmin
             .from("payments")
             .select("id, status")
-            .eq("order_id", order_id)
+            .eq("order_id", payment_id)
             .single();
 
           const { data: raceUser } = await supabaseAdmin
@@ -224,16 +183,16 @@ export async function POST(request: Request) {
         throw new Error("Payment record was not created");
       }
 
-      const paymentId = insertedPayments[0].id;
+      const dbPaymentId = insertedPayments[0].id;
 
-      // 6. Create or update user profile (upsert)
+      // 6. Upsert user profile
       const { error: profileError } = await supabaseAdmin.from("users").upsert(
         {
           id: userId,
-          email,
-          name,
-          phone,
-          payment_id: paymentId,
+          email: customerEmail,
+          name: customerName,
+          phone: "",
+          payment_id: dbPaymentId,
           membership_status: "active",
         },
         { onConflict: "id" },
@@ -243,16 +202,13 @@ export async function POST(request: Request) {
         throw new Error(`Profile operation failed: ${profileError.message}`);
       }
 
-      console.log(
-        `✅ Verify complete: user=${isNewUser ? "NEW" : "EXISTING"}, plan=${planType}`,
-      );
-
-      // Fetch the created user to return
       const { data: createdUser } = await supabaseAdmin
         .from("users")
         .select("*")
         .eq("id", userId)
         .single();
+
+      console.log(`✅ Verify complete: plan=${planType}`);
 
       return NextResponse.json({
         status: "processed",
@@ -263,7 +219,6 @@ export async function POST(request: Request) {
       console.error("❌ DB operation failed:", dbError.message);
 
       if (isNewUser && userId) {
-        console.log(`🔄 Rolling back auth user`);
         await supabaseAdmin.auth.admin.deleteUser(userId);
       }
 

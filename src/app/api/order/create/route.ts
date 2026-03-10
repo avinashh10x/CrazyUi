@@ -47,31 +47,15 @@ export async function POST(request: Request) {
       },
     };
 
-    console.log("Cashfree Config:", {
-      mode: process.env.CASHFREE_MODE || "SANDBOX (default)",
-      appId: process.env.CASHFREE_APP_ID
-        ? `${process.env.CASHFREE_APP_ID.substring(0, 5)}...`
-        : "MISSING",
-      secretSet: !!process.env.CASHFREE_SECRET_KEY,
-      baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
-    });
-
-    console.log(
-      "Creating Order with Data:",
-      JSON.stringify(requestData, null, 2),
-    );
+    console.log(`📦 Creating order: plan=${planType}, amount=${orderAmount}`);
 
     const response = await cashfree.PGCreateOrder(requestData);
 
-    console.log("Order Created Response:", response.data);
+    console.log(`✅ Order created: ${orderId}`);
 
     return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error("Error creating order (Full):", error);
-    if (error.response) {
-      console.error("Error Response Data:", error.response.data);
-      console.error("Error Response Status:", error.response.status);
-    }
+    console.error("❌ Order creation failed:", error.message);
 
     return NextResponse.json(
       {

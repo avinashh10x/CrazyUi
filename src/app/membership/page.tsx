@@ -60,37 +60,27 @@ function MembershipContent() {
     setLoading(true);
 
     try {
-      // Create order
-      const response = await fetch("/api/order/create", {
+      // Create Dodo Payments checkout session
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
-          plan: planType, // Send plan type to backend
+          email: formData.email,
+          name: formData.name,
+          plan: planType,
         }),
       });
 
       const data = await response.json();
 
-      if (!data.payment_session_id) {
-        setError(data.error || "Failed to create order");
+      if (!response.ok || !data.checkout_url) {
+        setError(data.error || "Failed to create checkout session");
         setLoading(false);
         return;
       }
 
-      // Load Cashfree SDK
-      const CashfreeSDK = await loadCashfreeSDK();
-
-      // Initialize with sandbox mode (change to "production" for live)
-      const cashfree = CashfreeSDK({ mode: "production" });
-
-      // Initialize checkout
-      const checkoutOptions = {
-        paymentSessionId: data.payment_session_id,
-        returnUrl: `${window.location.origin}/account?order_id=${data.order_id}`,
-      };
-
-      cashfree.checkout(checkoutOptions);
+      // Redirect to Dodo Payments hosted checkout
+      window.location.href = data.checkout_url;
     } catch (err: any) {
       setError(err.message || "Something went wrong");
       setLoading(false);
@@ -192,7 +182,7 @@ function MembershipContent() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">
-                            CrazyUI {p.name} — ₹{p.amount} Lifetime
+                            CrazyUI {p.name} — ${p.amount} Lifetime
                           </p>
                           <p className="text-xs text-gray-800 mt-0.5">
                             {p.features.slice(0, 3).join(", ")}
@@ -200,7 +190,7 @@ function MembershipContent() {
                         </div>
                       </div>
                       <span className="text-sm font-bold text-gray-900">
-                        ₹{p.amount}
+                        ${p.amount}
                       </span>
                     </div>
                   </button>
@@ -255,26 +245,6 @@ function MembershipContent() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  required
-                  pattern="[0-9]{10}"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition"
-                  placeholder="9876543210"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  10 digits, no spaces or special characters
-                </p>
-              </div>
-
               {error && (
                 <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -285,11 +255,11 @@ function MembershipContent() {
               <div className="border-t border-gray-200 pt-4 space-y-2">
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>Subtotal</span>
-                  <span>₹{plan.amount}</span>
+                  <span>${plan.amount}</span>
                 </div>
                 <div className="flex justify-between text-base font-bold text-gray-900">
                   <span>Total</span>
-                  <span>₹{plan.amount}</span>
+                  <span>${plan.amount}</span>
                 </div>
               </div>
 
@@ -319,10 +289,10 @@ function MembershipContent() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Processing...
+                    Redirecting to checkout...
                   </span>
                 ) : (
-                  `Pay ₹${plan.amount}`
+                  `Pay $${plan.amount}`
                 )}
               </button>
             </form>
@@ -363,27 +333,4 @@ export default function MembershipPage() {
       <MembershipContent />
     </Suspense>
   );
-}
-
-// Load Cashfree SDK dynamically
-function loadCashfreeSDK(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Cashfree) {
-      resolve((window as any).Cashfree);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
-    script.async = true;
-    script.onload = () => {
-      if ((window as any).Cashfree) {
-        resolve((window as any).Cashfree);
-      } else {
-        reject(new Error("Cashfree SDK failed to load"));
-      }
-    };
-    script.onerror = () => reject(new Error("Failed to load Cashfree SDK"));
-    document.head.appendChild(script);
-  });
 }
