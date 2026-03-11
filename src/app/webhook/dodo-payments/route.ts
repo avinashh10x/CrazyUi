@@ -24,6 +24,7 @@ export const POST = Webhooks({
     const paymentId = data.payment_id || data.id;
     const customerEmail = data.customer?.email || data.email;
     const customerName = data.customer?.name || data.name || "";
+    const customerPhone = data.customer?.phone_number || data.phone_number || "";
     const paymentAmount = data.total_amount || data.amount || 0;
     const metadata = data.metadata || {};
     const planType = metadata.plan_type || "premium";
@@ -132,7 +133,7 @@ export const POST = Webhooks({
             cf_payment_id: paymentId,
             email: customerEmail,
             name: customerName,
-            phone: "",
+            phone: customerPhone,
             amount: paymentAmount / 100,
             status: "SUCCESS",
             plan_type: planType,
@@ -161,7 +162,7 @@ export const POST = Webhooks({
           id: userId,
           email: customerEmail,
           name: customerName,
-          phone: "",
+          phone: customerPhone,
           payment_id: dbPaymentId,
           membership_status: "active",
         },
@@ -199,7 +200,7 @@ export const POST = Webhooks({
         cf_payment_id: paymentId,
         email: data.customer?.email || "",
         name: data.customer?.name || "",
-        phone: "",
+        phone: data.customer?.phone_number || data.phone_number || "",
         amount: (data.total_amount || 0) / 100,
         status: "FAILED",
         plan_type: data.metadata?.plan_type || "premium",
